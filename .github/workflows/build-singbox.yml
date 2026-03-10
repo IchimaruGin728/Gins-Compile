@@ -1,0 +1,81 @@
+name: Build Sing-box (reF1nd)
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (例如 v1.14.0-alpha.1-reF1nd)'
+        required: true
+        default: 'v1.14.0-alpha.1-reF1nd'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Latest Tag
+        id: get-tag
+        run: |
+          TAG=$(curl -s https://api.github.com/repos/reF1nd/sing-box/tags | jq -r '.[].name' | grep "\-reF1nd$" | head -n 1)
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Checkout Upstream
+        uses: actions/checkout@v4
+        with:
+          repository: reF1nd/sing-box
+          ref: ${{ github.event.inputs.version || steps.get-tag.outputs.tag }}
+          fetch-depth: 1
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+
+      - name: Build
+        run: |
+          TAGS="with_musl,with_gvisor,with_quic,with_dhcp,with_wireguard,with_utls,with_acme,with_clash_api,with_tailscale,with_ccm,with_ocm,with_naive_outbound,badlinkname,tfogo_checklinkname0"
+          LDFLAGS="-X internal/godebug.defaultGODEBUG=multipathtcp=0 -checklinkname=0 -s -w -buildid="
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+          go build -v -trimpath -o sing-box -tags "$TAGS" -ldflags "$LDFLAGS" ./cmd/sing-box
+
+      - name: Setup apk-tools
+        run: |
+          docker run --rm -v /usr/local/bin:/mnt alpine:edge sh -c "apk add --no-cache apk-tools-static && cp /sbin/apk.static /mnt/apk && chmod +x /mnt/apk"
+
+      - name: Package APK
+        run: |
+          VERSION="${{ github.event.inputs.version || steps.get-tag.outputs.tag }}"
+          APK_VERSION=$(echo "$VERSION" | sed 's/^v//' | sed -E 's/-([a-z]+)\.([0-9]+)/_\1\2/')
+          APK_VERSION="${APK_VERSION}-r0"
+          
+          mkdir -p root/usr/bin
+          cp sing-box root/usr/bin/
+          
+          if [ -d "release/config" ]; then
+            mkdir -p root/etc/config root/etc/init.d root/etc/sing-box
+            [ -f "release/config/config.json" ] && cp release/config/config.json root/etc/sing-box/
+            [ -f "release/config/openwrt.conf" ] && cp release/config/openwrt.conf root/etc/config/sing-box
+            [ -f "release/config/openwrt.init" ] && cp release/config/openwrt.init root/etc/init.d/sing-box
+            chmod +x root/etc/init.d/sing-box || true
+          fi
+
+          apk mkpkg \
+            --info "name:sing-box" \
+            --info "version:${APK_VERSION}" \
+            --info "description:The universal proxy platform (reF1nd version)" \
+            --info "arch:aarch64" \
+            --info "license:GPL-3.0-or-later" \
+            --info "url:https://github.com/reF1nd/sing-box" \
+            --info "maintainer:Gins-Compile" \
+            --info "depends:ca-bundle kmod-inet-diag kmod-tun firewall4 kmod-nft-queue" \
+            --files root \
+            --output "sing-box_${VERSION}_aarch64.apk"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sing-box-${{ github.event.inputs.version || steps.get-tag.outputs.tag }}
+          path: |
+            sing-box
+            *.apk
