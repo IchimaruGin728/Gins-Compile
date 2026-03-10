@@ -46,8 +46,10 @@ jobs:
       - name: Package APK
         run: |
           VERSION="${{ github.event.inputs.version || steps.get-tag.outputs.tag }}"
-          APK_VERSION=$(echo "$VERSION" | sed 's/^v//' | sed -E 's/-([a-z]+)\.([0-9]+)/_\1\2/')
-          APK_VERSION="${APK_VERSION}-r0"
+          # Alpine versions cannot have hyphens except for the -r revision.
+          # Replace all - with _ and ensure it starts with a number.
+          CLEAN_VERSION=$(echo "$VERSION" | sed 's/^v//' | sed 's/-/./g')
+          APK_VERSION="${CLEAN_VERSION}-r0"
           
           mkdir -p root/usr/bin
           cp sing-box root/usr/bin/
