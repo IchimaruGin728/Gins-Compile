@@ -46,10 +46,16 @@ jobs:
       - name: Package APK
         run: |
           VERSION="${{ github.event.inputs.version || steps.get-tag.outputs.tag }}"
-          # 极简版本号处理：提取 X.Y.Z，其余用下划线连接符合 APK 规范
-          APK_VERSION=$(echo "$VERSION" | sed 's/^v//' | sed 's/-/./g' | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+)\.(.*)/\1_\2/' | sed 's/\./_/g')
-          # 确保最终格式为 X_Y_Z_...-r0
-          APK_VERSION="${APK_VERSION}-r0"
+          # 极致兼容：只提取数字部分和标准的 alpha/beta/rc 标签
+          # v1.14.0-alpha.1-reF1nd -> 1.14.0_alpha1
+          NUMERIC_PART=$(echo "$VERSION" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+          TAG_PART=$(echo "$VERSION" | grep -oE '(alpha|beta|rc)\.[0-9]+' | sed 's/\./_/' | head -n 1)
+          
+          if [ -n "$TAG_PART" ]; then
+            APK_VERSION="${NUMERIC_PART}_${TAG_PART}-r0"
+          else
+            APK_VERSION="${NUMERIC_PART}-r0"
+          fi
           
           mkdir -p root/usr/bin
           cp sing-box root/usr/bin/
