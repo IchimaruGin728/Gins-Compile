@@ -43,7 +43,7 @@ jobs:
           # Read default tags and append all optional features
           # ref1nd-testing-next has these tags in release/DEFAULT_BUILD_TAGS
           DEFAULT_TAGS=$(cat release/DEFAULT_BUILD_TAGS)
-          FULL_TAGS="${DEFAULT_TAGS},with_grpc,with_v2ray_api,with_purego"
+          FULL_TAGS="${DEFAULT_TAGS},with_grpc,with_v2ray_api,with_purego,with_musl"
           
           # Read required LDFLAGS (badlinkname etc)
           REPO_LDFLAGS=$(cat release/LDFLAGS)
