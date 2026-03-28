@@ -10,6 +10,10 @@ description: "The universal proxy-toolchain for Android, iOS, Windows, macOS, an
 vendor: "reF1nd"
 homepage: "https://github.com/reF1nd/sing-box"
 license: "GPL-3.0-or-later"
+replaces:
+  - sing-box
+provides:
+  - sing-box
 contents:
   - src: "sing-box"
     dst: "/usr/bin/sing-box"

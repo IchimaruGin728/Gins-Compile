@@ -25,6 +25,7 @@ jobs:
           repository: 'reF1nd/sing-box'
           ref: ${{ github.event.inputs.branch || 'reF1nd-testing-next' }}
           path: 'sing-box-src'
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -36,8 +37,14 @@ jobs:
       - name: Build Binary
         working-directory: ./sing-box-src
         run: |
-          # Detect version
-          VERSION=$(git describe --tags --always)
+          # Detect version from Git tags or fallback
+          RAW_VERSION=$(git describe --tags --always | sed 's/^v//')
+          if [[ "$RAW_VERSION" != [0-9]* ]]; then
+            # If it starts with a hash, prepend a high version number for upgrade logic
+            VERSION="1.14.0-alpha.7-$RAW_VERSION"
+          else
+            VERSION="$RAW_VERSION"
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           
           # Read default tags and append all optional features
