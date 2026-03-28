@@ -1,0 +1,26 @@
+name: "sing-box"
+arch: "aarch64"
+platform: "linux"
+version: "${VERSION}"
+release: "1"
+section: "net"
+priority: "optional"
+maintainer: "Antigravity <antigravity@gemini.ai>"
+description: "The universal proxy-toolchain for Android, iOS, Windows, macOS, and Linux."
+vendor: "reF1nd"
+homepage: "https://github.com/reF1nd/sing-box"
+license: "GPL-3.0-or-later"
+contents:
+  - src: "sing-box"
+    dst: "/usr/bin/sing-box"
+    type: "file"
+    file_info:
+      mode: 0755
+#  - src: "sing-box.init"
+#    dst: "/etc/init.d/sing-box"
+#    type: "file"
+#    file_info:
+#      mode: 0755
+#  - src: "sing-box.config"
+#    dst: "/etc/config/sing-box"
+#    type: "config"

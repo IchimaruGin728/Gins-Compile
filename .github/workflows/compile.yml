@@ -1,0 +1,79 @@
+name: Compile Sing-Box OpenWrt APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to compile'
+        required: true
+        default: 'reF1nd-testing-next'
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build OpenWrt APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Sing-Box
+        uses: actions/checkout@v4
+        with:
+          repository: 'reF1nd/sing-box'
+          ref: ${{ github.event.inputs.branch || 'reF1nd-testing-next' }}
+          path: 'sing-box-src'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+          cache-dependency-path: 'sing-box-src/go.sum'
+
+      - name: Build Binary
+        working-directory: ./sing-box-src
+        run: |
+          # Detect version
+          VERSION=$(git describe --tags --always)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          
+          # Read default tags and append all optional features
+          # ref1nd-testing-next has these tags in release/DEFAULT_BUILD_TAGS
+          DEFAULT_TAGS=$(cat release/DEFAULT_BUILD_TAGS)
+          FULL_TAGS="${DEFAULT_TAGS},with_grpc,with_v2ray_api,with_purego"
+          
+          # Read required LDFLAGS (badlinkname etc)
+          REPO_LDFLAGS=$(cat release/LDFLAGS)
+          
+          # Add Go 1.24 specific MPTCP disable and custom version
+          # -checklinkname=0 is already in REPO_LDFLAGS if badlinkname is present, 
+          # but we add it explicitly to be sure.
+          FINAL_LDFLAGS="${REPO_LDFLAGS} -X 'github.com/sagernet/sing-box/constant.Version=$VERSION' -X 'internal/godebug.defaultGODEBUG=multipathtcp=0' -s -w -buildid="
+          
+          echo "Build Tags: $FULL_TAGS"
+          echo "LD Flags: $FINAL_LDFLAGS"
+          
+          GOOS=linux GOARCH=arm64 go build -v \
+            -trimpath \
+            -tags "$FULL_TAGS" \
+            -ldflags "$FINAL_LDFLAGS" \
+            -o ../sing-box ./cmd/sing-box
+
+      - name: Install nfpm
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Package APK
+        run: |
+          # Use the VERSION exported earlier
+          nfpm pkg --packager apk --target .
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sing-box-openwrt-a53-apk
+          path: "*.apk"
