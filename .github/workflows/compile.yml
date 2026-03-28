@@ -39,12 +39,14 @@ jobs:
         run: |
           # Detect version from Git tags or fallback
           RAW_VERSION=$(git describe --tags --always | sed 's/^v//')
-          if [[ "$RAW_VERSION" != [0-9]* ]]; then
-            # If it starts with a hash, prepend a high version number for upgrade logic
-            VERSION="1.14.0-alpha.7-$RAW_VERSION"
+          
+          # Force version 1.14.0-alpha.7 for testing-next branch to ensure upgrade success
+          if [[ "${{ github.event.inputs.branch }}" == "reF1nd-testing-next" || "${{ github.event_name }}" == "push" ]]; then
+            VERSION="1.14.0-alpha.7-next-$RAW_VERSION"
           else
             VERSION="$RAW_VERSION"
           fi
+          
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           
           # Read default tags and append all optional features
